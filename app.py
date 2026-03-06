@@ -23,24 +23,36 @@ def convert_pdf():
 
     file = request.files["file"]
 
-    filename = str(uuid.uuid4()) + ".pdf"
-    input_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(input_path)
+    filename = str(uuid.uuid4())
+    pdf_path = os.path.join(UPLOAD_FOLDER, filename + ".pdf")
+    docx_path = os.path.join(OUTPUT_FOLDER, filename + ".docx")
 
-    subprocess.run([
-        "soffice",
-        "--headless",
-        "--convert-to", "docx",
-        input_path,
-        "--outdir", OUTPUT_FOLDER
-    ])
+    file.save(pdf_path)
 
-    output_file = os.path.join(
-        OUTPUT_FOLDER,
-        filename.replace(".pdf", ".docx")
-    )
+    try:
+        result = subprocess.run(
+            [
+                "soffice",
+                "--headless",
+                "--convert-to", "docx",
+                pdf_path,
+                "--outdir", OUTPUT_FOLDER
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
 
-    if not os.path.exists(output_file):
-        return jsonify({"error": "Conversion failed"}), 500
+        if result.returncode != 0:
+            return jsonify({
+                "error": "LibreOffice conversion failed",
+                "details": result.stderr.decode()
+            }), 500
 
-    return send_file(output_file, as_attachment=True)
+        if not os.path.exists(docx_path):
+            return jsonify({"error": "Conversion failed"}), 500
+
+        return send_file(docx_path, as_attachment=True)
+
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
