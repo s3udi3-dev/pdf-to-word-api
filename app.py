@@ -47,3 +47,4 @@ def convert_pdf():
     finally:
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
+            os.remove(docx_path)
